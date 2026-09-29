@@ -1,0 +1,28 @@
+# omp 的 provider 与模型定义（供 omp SDK 与 omp-web 读）
+# 规则：密钥只写环境变量名，值由部署侧注入（见 modelman docs/omp-instance.md）
+providers:
+  yun777:
+    baseUrl: https://api.boboa.top/v1
+    apiKey: AGENT_PROVIDER_API_KEY
+    api: openai-responses
+    models:
+      - id: GLM-5.3-Flash
+        name: GLM-5.3-Flash
+        api: openai-responses
+        reasoning: false
+        input: [text]
+        cost:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
+      - id: glm-5.3
+        name: glm-5.3
+        api: openai-responses
+        reasoning: false
+        input: [text]
+        cost:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0

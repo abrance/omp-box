@@ -1,0 +1,58 @@
+name: omp image
+
+# 交付口径与主工作台一致：镜像 tag 不可覆盖，改 tag 走 PR + CI。
+# 打 `omp/vX.Y.Z` 的 tag 才会构建并推送 GHCR；PR 与手动触发只构建 + 冒烟。
+
+on:
+  push:
+    tags:
+      - "omp/v*"
+  pull_request:
+    paths:
+      - "platform/**"
+      - ".github/workflows/omp-image.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 构建镜像
+        run: |
+          docker build \
+            --build-arg NPM_REGISTRY=https://registry.npmjs.org \
+            -f platform/docker/Dockerfile \
+            -t omp-web:ci \
+            .
+
+      - name: 容器冒烟
+        run: docker run --rm --entrypoint sh omp-web:ci /app/platform/docker/smoke.sh
+
+      - name: 登录 GHCR（仅 tag）
+        if: startsWith(github.ref, 'refs/tags/omp/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 推送镜像（仅 tag）
+        if: startsWith(github.ref, 'refs/tags/omp/v')
+        run: |
+          set -eu
+          TAG="${GITHUB_REF_NAME#omp/}"
+          SHA7="$(git rev-parse --short=7 HEAD)"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/omp-web:${TAG}-${SHA7}"
+          docker tag omp-web:ci "$IMAGE"
+          docker push "$IMAGE"
+          echo "已推送 $IMAGE"

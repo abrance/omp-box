@@ -1,0 +1,9 @@
+# omp 的设置：模型角色与 advisor
+# 角色名与语义见 omp 的 models 文档（modelRoles：default / smol / slow / advisor …）
+modelRoles:
+  default: "yun777/GLM-5.3-Flash"
+  advisor: "yun777/GLM-5.3-Flash"
+
+# advisor = 第二模型盯每一轮，默认工具面是 read/grep/glob（只读）
+advisor:
+  enabled: true
