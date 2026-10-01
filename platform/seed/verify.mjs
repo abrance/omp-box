@@ -2,7 +2,7 @@
 // 基线校验：镜像构建期与冒烟都会跑。
 //
 // 守三件事：
-//   1. provider 形态完整（baseUrl / api 类型 / 两个模型 id 大小写正确）；
+//   1. provider 形态完整（baseUrl / api 类型 / 模型 id 大小写正确）；
 //   2. apiKey 只写环境变量名，不写字面量——仓库与镜像公开，写进去一次就是永久泄漏；
 //   3. 整个目录里没有像密钥的长串（顺带拦手滑粘贴）。
 //
@@ -27,26 +27,49 @@ const models = read("models.yml");
 const config = read("config.yml");
 
 // ── provider 形态 ───────────────────────────────────────────────────────
+//
+// 期望值写死在这里而不是解析 YAML：校验要能拦住"YAML 本身还能解析、但内容被
+// 改坏"的情况，用自己的解析器就等于用被测对象验自己。
+// 加 provider / 加模型时同步改这张表，别只改 models.yml。
+const EXPECTED_PROVIDERS = [
+  {
+    name: "yun777",
+    baseUrl: "https://api.boboa.top/v1",
+    models: ["GLM-5.3-Flash", "glm-5.3"],
+  },
+  {
+    name: "deepseek",
+    baseUrl: "https://new.9-u.cn/v1",
+    models: ["deepseek-v4.1-flash"],
+  },
+];
+
 if (models) {
-  if (!/^\s*yun777:\s*$/m.test(models)) failures.push("models.yml 里没有 provider `yun777`");
-  if (!models.includes("baseUrl: https://api.boboa.top/v1")) {
-    failures.push("models.yml 的 baseUrl 不是 https://api.boboa.top/v1");
+  for (const provider of EXPECTED_PROVIDERS) {
+    if (!new RegExp(`^\\s*${provider.name}:\\s*$`, "m").test(models)) {
+      failures.push(`models.yml 里没有 provider \`${provider.name}\``);
+    }
+    if (!models.includes(`baseUrl: ${provider.baseUrl}`)) {
+      failures.push(`models.yml 缺少 baseUrl：${provider.baseUrl}`);
+    }
+    for (const id of provider.models) {
+      if (!models.includes(`id: ${id}`)) failures.push(`models.yml 缺少模型 id：${id}（大小写敏感）`);
+    }
   }
   if (!models.includes("api: openai-responses")) {
-    failures.push("models.yml 缺少 `api: openai-responses`（777ai 走 Responses 端点）");
-  }
-  for (const id of ["GLM-5.3-Flash", "glm-5.3"]) {
-    if (!models.includes(`id: ${id}`)) failures.push(`models.yml 缺少模型 id：${id}（大小写敏感）`);
+    failures.push("models.yml 缺少 `api: openai-responses`（两个 provider 都走 Responses 端点）");
   }
 }
 
 // ── 密钥只引用不写值 ────────────────────────────────────────────────────
 if (models) {
-  const match = /^\s*apiKey:\s*(.+)$/m.exec(models);
-  if (!match) {
+  const values = [...models.matchAll(/^\s*apiKey:\s*(.+)$/gm)].map((match) =>
+    match[1].trim().replace(/^["']|["']$/g, ""),
+  );
+  if (values.length === 0) {
     failures.push("models.yml 缺少 apiKey");
-  } else {
-    const value = match[1].trim().replace(/^["']|["']$/g, "");
+  }
+  for (const value of values) {
     if (!/^[A-Z][A-Z0-9_]*$/.test(value)) {
       failures.push(`models.yml 的 apiKey 必须是环境变量名（形如 AGENT_PROVIDER_API_KEY），当前是：${value}`);
     }
@@ -95,4 +118,7 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`基线校验通过：${root}（provider yun777、api openai-responses、2 个模型、默认档与 advisor 已设）`);
+console.log(
+  `基线校验通过：${root}（provider ${EXPECTED_PROVIDERS.map((provider) => provider.name).join("/")}、` +
+    `${EXPECTED_PROVIDERS.reduce((total, provider) => total + provider.models.length, 0)} 个模型、默认档与 advisor 已设）`,
+);

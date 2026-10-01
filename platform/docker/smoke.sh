@@ -79,6 +79,19 @@ curl -fsS --max-time 90 -u "omp:${PASSWORD}" \
   || fail "模型角色里没有基线里的 GLM-5.3-Flash（种子配置没生效）"
 ok "模型角色来自基线（default/advisor → GLM-5.3-Flash）"
 
+# 模型列表是**进程内 registry** 读的，与 /api/model-roles 走的是同一份 models.yml，
+# 但两条路径的缓存层不同（/api/models 多一层 __ompModelsCacheState）。这里一起验，
+# 因为"基线里加了 provider，但 picker 里看不到"正是这个实例踩过的坑。
+models=$(curl -fsS --max-time 90 -u "omp:${PASSWORD}" \
+  "${BASE}/api/models?cwd=/data/workspace") || fail "读 /api/models 失败"
+for expected in "yun777/GLM-5.3-Flash" "yun777/glm-5.3" "deepseek/deepseek-v4.1-flash"; do
+  echo "$models" | grep -q "\"provider\":\"${expected%%/*}\"" \
+    || fail "模型列表里没有 provider ${expected%%/*}"
+done
+echo "$models" | grep -q 'deepseek-v4.1-flash' \
+  || fail "模型列表里没有 deepseek/deepseek-v4.1-flash（基线没生效）"
+ok "模型列表来自基线（yun777 × 2 + deepseek × 1）"
+
 echo "== 7. 优雅退出"
 kill -TERM "$server_pid"
 wait "$server_pid" 2>/dev/null || true

@@ -26,3 +26,18 @@ providers:
           output: 0
           cacheRead: 0
           cacheWrite: 0
+  deepseek:
+    baseUrl: https://new.9-u.cn/v1
+    apiKey: AGENT_PROVIDER_API_KEY
+    api: openai-responses
+    models:
+      - id: deepseek-v4.1-flash
+        name: deepseek-v4.1-flash
+        api: openai-responses
+        reasoning: false
+        input: [text]
+        cost:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
